@@ -1,0 +1,96 @@
+---
+title: "R Notebook"
+output: html_notebook
+
+## For Fig.2b -- Tissue/biofluid distribution
+# install/load packages
+install.packages("data.table")
+install.packages("tidyverse")
+pkgs <- c("data.table", "tidyverse")
+
+# combine presence-absence feature table with metadata to obtain data table for analysis
+feature.table <- fread('MASST_ConjugatedBAs_FeatureTable.csv', header = TRUE)
+metadata <- fread('all_sampleinformation.tsv', header = TRUE)
+data <- merge(metadata, feature.table, by.x="sample_name", by.y="filename")
+
+# filter based on inclusion of only certain groups
+animal.data <- data %>%
+    filter(SampleType %in% c("animal"))
+
+# consolidate different types of skin samples to just 'skin'
+animal.data <- animal.data %>%
+mutate(UBERONBodyPartName = ifelse(UBERONBodyPartName == "skin of body","skin",
+                               ifelse(UBERONBodyPartName == "skin of pes", "skin",
+                                 ifelse(UBERONBodyPartName == "skin of trunk", "skin",
+                                    ifelse(UBERONBodyPartName == "arm skin", "skin",  
+                                      ifelse(UBERONBodyPartName == "head or neck skin", "skin",
+                                        ifelse(UBERONBodyPartName == "skin of body", "skin",
+                                          ifelse(UBERONBodyPartName == "axilla skin", "skin", animal.data$UBERONBodyPartName))))))))
+
+# consolidate different types of blood samples to just 'blood'
+animal.data <- animal.data %>%
+mutate(UBERONBodyPartName = ifelse(UBERONBodyPartName == "blood serum", "blood",
+                                ifelse(UBERONBodyPartName == "blood plasma", "blood", animal.data$UBERONBodyPartName)))
+
+# select metadata category to tabulate -- UBERONBodyPartName
+bodypart.data <- aggregate(animal.data[,30:71], list(animal.data$UBERONBodyPartName), sum)
+colnames(bodypart.data)[1] <- "UBERON_BodyPart"
+
+# apply function to obtain the proportion of each bile acid detected in different body sites -- each column sums to 1 
+bodypart.data[, -1] <- lapply(bodypart.data[ , -1], function(x) x/sum(x, na.rm=TRUE) )
+
+# filter data to include only certain body parts
+bodypart.data.filtered <- bodypart.data %>%
+    filter(UBERON_BodyPart %in% c("blood", "caecum", "colon", "duodenum", "feces", "gall bladder", "ileum", "jejunum", "liver","oral cavity", "skin", "stomach", "upper digestive tract","urine"))
+
+# transform to long table
+## add columns to include number of OH and conjugated amino acid
+### change N/As to zeros
+bodypart.data.long <- gather(data = bodypart.data.filtered, key = Bile.Acid, value = Count, -c(1))
+colnames(bodypart.data.long)[1] <- "UBERON_BodyPart"
+bodypart.data.long$Bile.Acid <- gsub("Ile/Leu", "Leu", bodypart.data.long$Bile.Acid)
+bodypart.data.long$numberofOH <- substr(bodypart.data.long$Bile.Acid, 7, 7)
+bodypart.data.long$aminoacid <- substr(bodypart.data.long$Bile.Acid, 1,3)
+bodypart.data.long$aminoacid <- gsub("Leu", "Ile/Leu", bodypart.data.long$aminoacid)
+bodypart.data.long <- bodypart.data.long %>%
+    mutate(numberofOH = recode(numberofOH,
+    "2" = "dihydroxy BA",
+    "3" = "trihydroxy BA"))
+bodypart.data.long[is.na(bodypart.data.long)] <- 0
+
+# produce figure separated into dihydroxy vs. trihydroxy bile acids -- SI Fig. 20
+install.packages("extrafont")
+library(extrafont)
+data.heatmap <- ggplot(data = bodypart.data.long, mapping = aes(x = UBERON_BodyPart,
+                                                       y = aminoacid,
+                                                    fill = as.numeric(Count))) +
+    theme_classic() +
+    geom_tile(colour = "white") +
+    scale_fill_gradient(low = "white", high = "#2660A4", name = "Proportion of matches") +
+    xlab(label = "Tissue/biofluid type") +
+    ylab(label = "Amino acid conjugation") +
+        theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), axis.text.y = element_text(size = 8), strip.text.x = element_text(size = 8)) +
+    facet_grid(~numberofOH)
+data.heatmap + coord_fixed()
+ggsave("SIFig20.pdf", width = 7, height = 4)
+
+# sum values for dihydroxy and trihydroxy bile acids to make combined plot -- Fig. 2b
+bodypart.data.long.combined <- bodypart.data.long %>%
+      group_by(UBERON_BodyPart, aminoacid) %>%
+      summarize(Count = sum(Count))
+bodypart.data.long.combined['Name']='Tissue/biofluid type'
+
+data.heatmap <- ggplot(data = bodypart.data.long.combined, mapping = aes(x = UBERON_BodyPart,
+                                                       y = aminoacid,
+                                                    fill = as.numeric(Count))) +
+    theme_classic() +
+    geom_tile(colour = "white") +
+    scale_fill_gradient(low = "white", high = "#2660A4", name = "Proportion of matches") +
+    xlab(label = "Tissue/biofluid type") +
+    ylab(label = "Amino acid conjugation") +
+        theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), axis.text.y = element_text(size = 8), strip.text.x = element_text(size = 8)) +
+    facet_grid(~Name)
+data.heatmap + coord_fixed()
+ggsave("Fig2b_Bodyparts.pdf", width = 3, height = 4)
+
+
