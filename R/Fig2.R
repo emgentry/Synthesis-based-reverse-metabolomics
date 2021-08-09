@@ -2,7 +2,7 @@
 title: "Fig2: analysis of MASST results"
 
 # install/load packages
-install.packages("data.table")
+install.packages("data.table", type = "binary")
 install.packages("tidyverse")
 install.packages("ggplot2")
 install.packages("extrafont")
