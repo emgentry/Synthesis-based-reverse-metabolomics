@@ -3,7 +3,7 @@ title: 'Fig3: analysis of iHMP2 metabolomics data'
 ---
 #install/load libraries
 # install/load packages
-install.packages("data.table")
+install.packages("data.table", type = "binary")
 install.packages("tidyverse")
 install.packages("ggplot2")
 install.packages("extrafont")
