@@ -10,7 +10,126 @@ install.packages("vegan")
 pkgs <- c("data.table", "tidyverse", "ggplot2", "extrafont", "vegan")
 lapply(pkgs, require, character.only = TRUE)
 
-# combine presence-absence feature table with metadata to obtain data table for analysis
+## For Fig.2a -- overview of MASST results for N-acyl amides
+amide.feature.table <- fread('MASST_amidation.csv', header = TRUE)
+amide.counts.table <- amide.feature.table %>%
+    summarise(across(where(is.numeric), ~ sum(.x, na.rm = TRUE)))
+amide.counts.table.long <- gather(data = amide.counts.table, key = amide, value = Count)
+amide.counts.table.long$log.count <- log(amide.counts.table.long$Count)
+amide.counts.table.long$amine <- sub("\\-.*", "", amide.counts.table.long$amide)
+amide.counts.table.long$fattyacid <- word(amide.counts.table.long$amide, 2, sep="-")
+amide.counts.table.long$amide <- NULL
+amide.counts.table.long <- amide.counts.table.long %>% 
+  complete(amine, fattyacid)
+amide.counts.table.long[is.na(amide.counts.table.long)] <- 0
+amide.counts.table.long$fattyacid <- factor(amide.counts.table.long$fattyacid, levels = c("C4:0", "C5:0", "C6:0", "C7:0", "C8:0", "C9:0", "C10:0", "C11:0", "C11:1", "C12:0", "C12:1", "C13:0", "C13:1", "C14:0", "C14:1", "C15:0", "C15:1", "C16:0", "C16:1", "C17:0", "C17:1", "C18:0", "C18:1", "C18:2", "C18:3", "C19:0", "C19:1", "C19:2", "C20:0", "C20:1", "C20:2", "C20:3", "C20:4", "C20:5", "C21:0", "C22:0", "C22:1", "C22:2", "C22:3", "C22:4", "C22:5", "C22:6", "C23:0", "C23:1", "C24:0", "C24:1"))
+
+## produce figure 2a
+heatmap <- ggplot(data = amide.counts.table.long, mapping = aes(x = fattyacid,
+                                                       y = amine,
+                                                    fill = log.count)) +
+theme_classic()+
+                geom_tile(colour = "white") +
+  geom_tile(colour = "white") +
+    scale_fill_gradient2(low = "white", mid = "#00448c", high = "#EE7674", midpoint =4, space = "rgb", name = "log(number of matches)") +
+                xlab(label = "AA conjugation") +
+                ylab(label = "Sample type") +
+                theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), axis.text.y = element_text(size = 8), strip.text.x = element_text(size = 8))
+
+# combine presence-absence feature table with metadata
+metadata <- fread('all_sampleinformation.tsv', header = TRUE)
+amide.data <- merge(metadata, amide.feature.table, by.x="sample_name", by.y="filename")
+amide.animal.data <- amide.data %>%
+                     filter(SampleType %in% c("animal"))
+amide.microbial.data <- amide.data %>%
+                     filter(SampleType %in% c("culture_bacterial","culture_fungal","culture_multiplespecies"))
+amide.animal.data <- amide.animal.data %>%
+  mutate(simple.NCBI = ifelse(NCBITaxonomy == "10088|Mus" | NCBITaxonomy == "10090|Mus musculus", "mouse",
+               ifelse(NCBITaxonomy == "10114|Rattus" | NCBITaxonomy == "10116|Rattus norvegicus", "rat",
+                      ifelse(NCBITaxonomy == "9606|Homo sapiens" ,"human",
+                            ifelse(NCBITaxonomy == "not specified" ,"not specified","other vertebrate")))))
+amide.species.data <- aggregate(amide.animal.data[,30:495], list(amide.animal.data$simple.NCBI), sum)
+colnames(amide.species.data)[1] <- "NCBITaxonomy"
+amide.microbial.species.data <- aggregate(amide.microbial.data[,30:495], list(amide.microbial.data$NCBITaxonomy), sum)
+##transform to long table
+amide.species.data.long <- gather(data = amide.species.data, key = amide, value = Count, -c(1))
+amide.species.data.long$amine <- sub("\\-.*", "", amide.species.data.long$amide)
+amide.species.data.long$fattyacid <- word(amide.species.data.long$amide, 2, sep="-")
+amide.species.data.long$log.count <- log(amide.species.data.long$Count)
+is.na(amide.species.data.long) <- sapply(amide.species.data.long, is.infinite)
+amide.species.data.long$log.count[is.na(amide.species.data.long$log.count)] <- 0
+amide.species.data.long
+
+amide.species.data.long.combined <- amide.species.data.long %>%
+      group_by(NCBITaxonomy, amine) %>%
+      summarize(Count = sum(Count))
+amide.species.data.long.combined$log.count = log(amide.species.data.long.combined$Count)
+is.na(amide.species.data.long.combined) <- sapply(amide.species.data.long.combined, is.infinite)
+amide.species.data.long.combined[is.na(amide.species.data.long.combined)] <- 0
+
+#most to least saturated
+amide.species.data.long.combined$fattyacid <- factor(amide.species.data.long.combined$fattyacid, levels = c("C4:0", "C5:0", "C6:0", "C7:0", "C8:0", "C9:0", "C10:0", "C11:0", "C12:0",  "C13:0",  "C14:0",  "C15:0",  "C16:0",  "C17:0",  "C18:0",  "C19:0",  "C20:0",  "C21:0", "C22:0",  "C23:0",  "C24:0","C11:1","C12:1","C13:1","C14:1","C15:1","C16:1", "C17:1", "C18:1", "C18:2", "C18:3", "C19:1", "C19:2","C20:1", "C20:2", "C20:3", "C20:4", "C20:5","C22:1", "C22:2", "C22:3", "C22:4", "C22:5", "C22:6","C23:1","C24:1"))
+
+#produce Fig. 2b
+amide.species.data.heatmap.combined <- ggplot(data = amide.species.data.long.combined, mapping = aes(x = NCBITaxonomy,
+                                                       y = amine,
+                                                    fill = as.numeric(log.count))) +
+    geom_tile() +
+    scale_fill_gradient2(low = "white", mid = "#CADDF3", high = "#F9B5AC", midpoint = 4, space = "rgb", name = "proportion of matches") +
+    xlab(label = "Species") +
+    ylab(label = "Amino acid conjugation") +
+    theme(text = element_text(size = 6, family = "Myriad Web Pro"), axis.text.y = element_text(size = 6), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6), strip.text.x = element_text(size = 6))
+amide.species.data.heatmap.combined + coord_fixed()
+
+# consolidate different types of skin samples to just 'skin'
+amide.animal.data <- amide.animal.data %>%
+mutate(UBERONBodyPartName = ifelse(UBERONBodyPartName == "skin of body","skin",
+                               ifelse(UBERONBodyPartName == "skin of pes", "skin",
+                                 ifelse(UBERONBodyPartName == "skin of trunk", "skin",
+                                    ifelse(UBERONBodyPartName == "arm skin", "skin",  
+                                      ifelse(UBERONBodyPartName == "head or neck skin", "skin",
+                                        ifelse(UBERONBodyPartName == "skin of body", "skin",
+                                          ifelse(UBERONBodyPartName == "skin of leg", "skin",
+                                            ifelse(UBERONBodyPartName == "skin of manus", "skin",
+                                              ifelse(UBERONBodyPartName == "axilla skin", "skin", amide.animal.data$UBERONBodyPartName))))))))))
+
+# consolidate different types of blood samples to just 'blood'
+amide.animal.data <- amide.animal.data %>%
+mutate(UBERONBodyPartName = ifelse(UBERONBodyPartName == "blood serum", "blood",
+                                ifelse(UBERONBodyPartName == "blood plasma", "blood", amide.animal.data$UBERONBodyPartName)))
+
+# select metadata category to tabulate -- UBERONBodyPartName
+amide.bodypart.data <- aggregate(amide.animal.data[,30:495], list(amide.animal.data$UBERONBodyPartName), sum)
+colnames(amide.bodypart.data)[1] <- "UBERON_BodyPart"
+
+amide.bodypart.data.long$amine <- sub("\\-.*", "", amide.bodypart.data.long$amide)
+amide.bodypart.data.long$fattyacid <- word(amide.bodypart.data.long$amide, 2, sep="-")]
+amide.bodypart.data.long$log.count <- log(amide.bodypart.data.long$Count)
+is.na(amide.bodypart.data.long) <- sapply(amide.bodypart.data.long, is.infinite)
+amide.bodypart.data.long$log.count[is.na(amide.bodypart.data.long$log.count)] <- 0
+amide.bodypart.data.long.combined <- amide.bodypart.data.long %>%
+      group_by(UBERON_BodyPart, fattyacid) %>%
+      summarize(Count = sum(Count))
+amide.bodypart.data.long
+amide.bodypart.data.long.combined
+
+#filter and sort data for plot
+amide.plotdata <-amide.bodypart.data.long.combined[!(amide.bodypart.data.long.combined$UBERON_BodyPart == "esophagus"| amide.bodypart.data.long.combined$UBERON_BodyPart == "heart" | amide.bodypart.data.long.combined$UBERON_BodyPart == "kidney"| amide.bodypart.data.long.combined$UBERON_BodyPart == "lower digestive tract"| amide.bodypart.data.long.combined$UBERON_BodyPart == "nasal cavity"| amide.bodypart.data.long.combined$UBERON_BodyPart == "not applicable" | amide.bodypart.data.long.combined$UBERON_BodyPart == "pancreas"| amide.bodypart.data.long.combined$UBERON_BodyPart == "saliva"),]
+amide.plotdata$fattyacid <- factor(amide.plotdata$fattyacid, levels = c("C4:0", "C5:0", "C6:0", "C7:0", "C8:0", "C9:0", "C10:0", "C11:0", "C12:0",  "C13:0",  "C14:0",  "C15:0",  "C16:0",  "C17:0",  "C18:0",  "C19:0",  "C20:0",  "C21:0", "C22:0",  "C23:0",  "C24:0","C11:1","C12:1","C13:1","C14:1","C15:1","C16:1", "C17:1", "C18:1", "C18:2", "C18:3", "C19:1", "C19:2","C20:1", "C20:2", "C20:3", "C20:4", "C20:5","C22:1", "C22:2", "C22:3", "C22:4", "C22:5", "C22:6","C23:1","C24:1"))
+
+amide.data.heatmap <- ggplot(data = amide.plotdata, mapping = aes(x = fattyacid,
+                                                       y = UBERON_BodyPart,
+                                                    fill = as.numeric(log.count))) +
+    theme_classic() +
+    geom_tile(colour = "white") +
+    scale_fill_gradient2(low = "white", mid = "#CADDF3", high = "#F9B5AC", midpoint = 4, space = "rgb", name = "log(number of matches)") +
+    xlab(label = "Fatty acid chain") +
+    ylab(label = "Tissue/biofluid type") +
+        theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), axis.text.y = element_text(size = 8), strip.text.x = element_text(size = 8))
+data.heatmap + coord_fixed()
+
+##BILE ACIDS##
+# combine data for Fig. 2c and 2d
 feature.table <- fread('MASST_ConjugatedBAs_FeatureTable.csv', header = TRUE)
 metadata <- fread('all_sampleinformation.tsv', header = TRUE)
 data <- merge(metadata, feature.table, by.x="sample_name", by.y="filename")
@@ -73,7 +192,6 @@ bodypart.data.heatmap <- ggplot(data = bodypart.data.long, mapping = aes(x = UBE
         theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), axis.text.y = element_text(size = 8), strip.text.x = element_text(size = 8)) +
     facet_grid(~numberofOH)
 bodypart.data.heatmap + coord_fixed()
-ggsave("SIFig20.pdf")
 
 # sum values for dihydroxy and trihydroxy bile acids to make combined plot for Fig. 2b
 bodypart.data.long.combined <- bodypart.data.long %>%
@@ -93,7 +211,6 @@ bodypart.data.heatmap <- ggplot(data = bodypart.data.long.combined, mapping = ae
         theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), axis.text.y = element_text(size = 8), strip.text.x = element_text(size = 8)) +
     facet_grid(~Name)
 bodypart.data.heatmap + coord_fixed()
-ggsave("Fig2b_Bodyparts.pdf")
 
 ## For Fig.2b -- Distribution across different species
 # select metadata category to tabulate -- NCBITaxonomy
@@ -141,7 +258,6 @@ species.data.heatmap <- ggplot(data = species.data.transformed.mod, mapping = ae
   theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.y = element_text(size = 8), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), strip.text.x = element_text(size = 8)) +
   facet_grid(~Name)
 species.data.heatmap + coord_fixed()
-ggsave("Fig2b_species.pdf")
 
 ## For Fig.2c -- Distribution across disease phenotypes
 # rename animal samples with DOIDCommonName = "not applicable" to "not specified"
@@ -151,14 +267,13 @@ mutate(DOIDCommonName = ifelse(DOIDCommonName == "not applicable","not specified
 # select metadata category to tabulate -- DOIDCommonName
 health.data <- aggregate(animal.data[,30:71], list(animal.data$DOIDCommonName), sum)
 
-# apply function to obtain the proportion of each bile acid detected in different disease phenotypes -- each column sums to 1 
-health.data[, -1] <- lapply( health.data[ , -1], function(x) x/sum(x, na.rm=TRUE) )
-
 # filter data to include only those diseases where new conjugated BAs are detected
 colnames(health.data)[1] <- "DOIDCommonName"
 health.data.filtered <- health.data %>%
   filter(DOIDCommonName %in% c("Chagas disease","circadian rhythm disorders", "Crohn's disease", "disease NOS", "inflammatory bowel disease", "no disease reported", "not specified", "obesity", "sleep deprivation", "ulcerative colitis"))
 
+##Each disease count was then divided by the number of samples available in the public domain per disease##
+                             
 # transform to long table
 ## add columns to include number of OH and conjugated amino acid
 ### change N/As to zeros
@@ -197,7 +312,6 @@ health.data.heatmap <- ggplot(data = health.data.transformed.mod, mapping = aes(
   theme(text = element_text(size = 8, family = "Myriad Web Pro"), axis.text.y = element_text(size = 8), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8), strip.text.x = element_text(size = 8)) +
   facet_grid(~numberofOH)
 health.data.heatmap + coord_fixed()
-ggsave("Fig2c.pdf")
 
 ## For Fig.2d -- PCoA using Jaccard distance
 # remove Gly and Tau conjugates for analysis
@@ -242,4 +356,3 @@ PCoA <- ggplot(pcoa.metadata, aes(x = PC1, y = PC2, colour = HealthStatus)) +
   theme(text = element_text(size = 8, family = "Myriad Web Pro"))+
   theme(panel.grid.major = element_blank(),panel.grid.major.x = element_blank(),panel.grid.minor = element_blank())
 PCoA + theme(legend.position = "bottom") + guides(colour=guide_legend(nrow=2, byrow=TRUE))
-ggplot("PCoA.pdf")
