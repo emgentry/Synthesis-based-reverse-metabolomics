@@ -9,7 +9,7 @@ install.packages("extrafont")
 pkgs <- c("data.table","tidyverse", "ggplot2", "extrafont")
 lapply(pkgs, require, character.only = TRUE)
 
-#load and prepare data table from positive ion LC-MS/MS -- for Fig. 4a and 4b
+#load and prepare data table from positive ion LC-MS/MS -- for Fig. 4b and 4c
 df.lcms <- fread("06232021_HMPCultures_FCM_quant.csv", check.names = FALSE)
 colnames(df.lcms)[1] <- "row.ID"
 colnames(df.lcms) <- gsub(" Peak area", "", as.matrix(colnames(df.lcms)))
@@ -67,7 +67,7 @@ levels(plotdata.lcms$ATTRIBUTE_sampletype) <- gsub(" ", "\n", levels(plotdata.lc
 # define color scheme
 group.colors <- c("Ala"="#C337a9","Arg"="#D88C9A","Asn"="#8E7DBE","Asp"="#8a67ee", "Cit"="#86BBD8", "Cys" = "#2660A4", "Gln"="#002366","Glu"="#3891A6","His"="#84c7bc", "Leu"="#226F54","Lys"="#7FB069", "Met"="#d8f890","Orn"="#BABF95", "Phe"="#FFC53A","Ser"="#F4A261","Thr"="#F9B5AC","Trp"="#EE7674","Tyr"="#8F5D5D")
 
-# generate plot for Fig. 4b
+# generate plot for Fig. 4c
 boxplot.4b <- ggplot(plotdata.lcms) +
  aes(x = ATTRIBUTE_sampletype, y = Abundance, colour = as.factor(Amino.Acid)) +
  geom_point(position=position_jitterdodge(), size =0.5) +
@@ -77,9 +77,8 @@ boxplot.4b <- ggplot(plotdata.lcms) +
  ylab(label = "Peak Area") +
  theme(text = element_text(hjust = 0.5, family = "Myriad Web Pro", size =8), axis.text.y = element_text(size = 8), axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size = 8))
 boxplot.4b + scale_x_discrete(labels = c("extraction\nblank", "media\nblank", "culture\nt=0h", "culture\nt=72h")) + scale_y_continuous(labels = scales::scientific)
-ggsave("Fig4b.pdf")
  
-# generate plot for Fig. 4a
+# generate plot for Fig. 4b
 plotdata.lcms.noblanks <- plotdata.lcms[!(plotdata.lcms$ATTRIBUTE_Class == "not applicable"),]
 boxplot.4a <- ggplot(plotdata.lcms.noblanks) +
  aes(x = ATTRIBUTE_Class, y = Abundance, colour = as.factor(Amino.Acid)) +
@@ -91,9 +90,8 @@ boxplot.4a <- ggplot(plotdata.lcms.noblanks) +
  theme(text = element_text(hjust = 0.5, family = "Myriad Web Pro", size =8), axis.text.y = element_text(size = 8), axis.text.x = element_text(angle = -90, vjust = 0.5, hjust=0, size = 8)) +
  facet_wrap(~BAcore, ncol=2)
 boxplot.4a + scale_y_continuous(labels = scales::scientific)
-ggsave("Fig.4a.pdf")
 
-# load and prepare data table from negative ion LC-IMS-MS -- for Fig. 4c
+# load and prepare data table from negative ion LC-IMS-MS -- for Fig. 4e
 df.ims <- read.csv("BA-AA HMP 14May2021 Skyline Peak Area Export_noisotopes.csv", stringsAsFactors = FALSE)
 metadata.ims <- fread("Metadata_HMP_cultures_IMS_neg.csv", header=TRUE, sep=",")
 data.ims <- merge(metadata.ims, df.ims, by.x="Skyline_filename", by.y="File.Name")
@@ -124,7 +122,7 @@ plotdata.ims <- plotdata.ims %>%
 plotdata.ims$BAcore <- factor(plotdata.ims$BAcore, levels = c("CA","DCA","CDCA"))
 
 
-# generate plot for Fig. 4c
+# generate plot for Fig. 4e
 boxplot.4c <- ggplot(plotdata.ims) +
  aes(x = ATTRIBUTE_Genus, y = as.numeric(Area), colour = Amino.Acid) +
  geom_point(size = 0.65, position=position_jitterdodge(jitter.width=0.1, dodge.width = 1), show.legend = FALSE) +
@@ -135,4 +133,3 @@ boxplot.4c <- ggplot(plotdata.ims) +
  theme(text = element_text(hjust = 0.5, size = 8, family = "Myriad Web Pro"), axis.text.x = element_text(angle = -90, vjust = 0, size = 8)) + 
  facet_wrap(~BAcore, ncol = 4, scales = "free_y")
 boxplot.4c + scale_y_continuous(labels = scales::scientific)
-ggsave("Fig.4c.pdf")
