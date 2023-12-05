@@ -26,31 +26,7 @@ plotdata <-df[!(df$Method == "HILIC-pos"),]
 group.fill.colors <- c("nonIBD"="#CADDF3","CD"="#F9B5AC","UC"="#84c7bc")
 group.colours <- c("nonIBD"= "#86BBD8", "CD" = "#EE7674", "UC"="#3891A6")
 
-## To create Fig. 3a
-# add rows with empty values for better spacing in plot
-empties <- data.frame(Compound_orig=unique(plotdata$Compound)[-length(unique(plotdata$Compound))])
-empties$Compound <- paste0(empties$Compound_orig,empties$Compound_orig)
-empties$value <- NA
-empties <- empties %>% add_row(Compound_orig = "Phe-DCA", Compound = "Phe-DCAPhe-DCA", value = "NA")
-plotdata_wspaces <- plyr::rbind.fill(plotdata,empties)
-plotdata_wspaces$Diagnosis <- factor(plotdata_wspaces$Diagnosis, levels = c("nonIBD", "CD", "UC"))
-
-# generate plot for Fig.3a
-boxplot <- ggplot(plotdata_wspaces) +
- aes(x = Compound, y = as.numeric(Abundance), fill = Diagnosis, colour = Diagnosis) +
- geom_boxplot(width = 1, lwd = 0.4, alpha = 0.5, position = position_dodge(width = 1.5), outlier.shape = NA) +
- theme_classic() +
- scale_fill_manual(values=group.fill.colors,name = "Diagnosis") +
- scale_colour_manual(values=group.colours,name = "Diagnosis") +
- scale_x_discrete(breaks=unique(df2$Compound)) +
- theme(text = element_text(size = 8, family = "Myriad Web Pro")) +
- xlab(label = "Conjugated Bile Acid") +
- ylab(label = "Peak Area") +
- theme(plot.title = element_text(hjust = 0, size = 8), axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0, size = 8)) 
-boxplot + coord_fixed(ratio = 1/200000, ylim = c(0,5000000), expand = FALSE)
-ggsave("Fig3a.pdf")
-
-## To create Fig.3b
+## To create Fig.3a
 # separate data by amino acid and BA core
 plotdata <- plotdata %>%
   separate(Compound, c("Amino.Acid","BACore"), "-")
@@ -360,3 +336,27 @@ theme(plot.title = element_text(hjust = 0, size = 8), axis.text.x = element_text
 theme(legend.position = "none") +
 facet_grid(~Amino.Acid)
 ggsave("boxplot.Tyr.p.pdf", width = 2, height= 2)
+
+## To create Extended Data Fig. 6a
+# add rows with empty values for better spacing in plot
+empties <- data.frame(Compound_orig=unique(plotdata$Compound)[-length(unique(plotdata$Compound))])
+empties$Compound <- paste0(empties$Compound_orig,empties$Compound_orig)
+empties$value <- NA
+empties <- empties %>% add_row(Compound_orig = "Phe-DCA", Compound = "Phe-DCAPhe-DCA", value = "NA")
+plotdata_wspaces <- plyr::rbind.fill(plotdata,empties)
+plotdata_wspaces$Diagnosis <- factor(plotdata_wspaces$Diagnosis, levels = c("nonIBD", "CD", "UC"))
+
+# generate plot for Extended Data Fig. 6a
+boxplot <- ggplot(plotdata_wspaces) +
+ aes(x = Compound, y = as.numeric(Abundance), fill = Diagnosis, colour = Diagnosis) +
+ geom_boxplot(width = 1, lwd = 0.4, alpha = 0.5, position = position_dodge(width = 1.5), outlier.shape = NA) +
+ theme_classic() +
+ scale_fill_manual(values=group.fill.colors,name = "Diagnosis") +
+ scale_colour_manual(values=group.colours,name = "Diagnosis") +
+ scale_x_discrete(breaks=unique(df2$Compound)) +
+ theme(text = element_text(size = 8, family = "Myriad Web Pro")) +
+ xlab(label = "Conjugated Bile Acid") +
+ ylab(label = "Peak Area") +
+ theme(plot.title = element_text(hjust = 0, size = 8), axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0, size = 8)) 
+boxplot + coord_fixed(ratio = 1/200000, ylim = c(0,5000000), expand = FALSE)
+
